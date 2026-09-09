@@ -1,1 +1,887 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .header {
+            height: 65px;
+            background: #0f172a;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .header h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #userEmail {
+            font-size: 13px;
+            color: #cbd5e1;
+        }
+
+        .logout {
+            border: 0;
+            background: #dc2626;
+            color: white;
+            padding: 9px 14px;
+            border-radius: 7px;
+            cursor: pointer;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            height: calc(100vh - 65px);
+        }
+
+        .sidebar {
+            background: white;
+            border-right: 1px solid #cbd5e1;
+            overflow-y: auto;
+        }
+
+        .sidebar-title {
+            padding: 18px;
+            font-size: 17px;
+            font-weight: bold;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .device {
+            margin: 15px;
+            padding: 13px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .device-name {
+            font-weight: bold;
+        }
+
+        .device-number {
+            color: #64748b;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .status {
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .online {
+            color: #16a34a;
+        }
+
+        .offline {
+            color: #dc2626;
+        }
+
+        .conversation {
+            padding: 15px 18px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+        }
+
+        .conversation:hover {
+            background: #f8fafc;
+        }
+
+        .conversation-number {
+            font-weight: bold;
+        }
+
+        .conversation-message {
+            margin-top: 5px;
+            color: #64748b;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat {
+            display: flex;
+            flex-direction: column;
+            background: #e2e8f0;
+        }
+
+        .chat-header {
+            height: 65px;
+            background: white;
+            border-bottom: 1px solid #cbd5e1;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        #chatTitle {
+            font-weight: bold;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .empty {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+        }
+
+        .message-row {
+            display: flex;
+            margin-bottom: 12px;
+        }
+
+        .message-row.outgoing {
+            justify-content: flex-end;
+        }
+
+        .bubble {
+            max-width: 70%;
+            padding: 10px 13px;
+            border-radius: 13px;
+            background: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,.08);
+        }
+
+        .outgoing .bubble {
+            background: #0284c7;
+            color: white;
+        }
+
+        .message-info {
+            margin-top: 5px;
+            font-size: 10px;
+            opacity: .7;
+        }
+
+        .send-area {
+            background: white;
+            padding: 12px;
+            border-top: 1px solid #cbd5e1;
+            display: flex;
+            gap: 10px;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 9px;
+            font-size: 14px;
+        }
+
+        #sendButton {
+            width: 100px;
+            border: 0;
+            border-radius: 9px;
+            background: #0284c7;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #sendButton:disabled {
+            opacity: .5;
+        }
+
+        .no-device {
+            padding: 20px;
+            text-align: center;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        @media (max-width: 700px) {
+
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                display: none;
+            }
+
+            .bubble {
+                max-width: 85%;
+            }
+
+            #userEmail {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header class="header">
+
+    <h2>📱 Shared SMS System</h2>
+
+    <div class="header-right">
+        <span id="userEmail"></span>
+        <button class="logout" onclick="logout()">Logout</button>
+    </div>
+
+</header>
+
+
+<div class="layout">
+
+    <!-- LEFT SIDE -->
+    <aside class="sidebar">
+
+        <div class="sidebar-title">
+            Conversations
+        </div>
+
+        <div id="deviceArea"></div>
+
+        <div id="conversationList">
+            <div class="no-device">
+                Loading conversations...
+            </div>
+        </div>
+
+    </aside>
+
+
+    <!-- CHAT AREA -->
+    <main class="chat">
+
+        <div class="chat-header">
+            <span id="chatTitle">
+                Select a conversation
+            </span>
+        </div>
+
+        <div id="messages" class="messages">
+
+            <div class="empty">
+                Select a conversation to view messages
+            </div>
+
+        </div>
+
+        <div class="send-area">
+
+            <input
+                type="text"
+                id="messageInput"
+                placeholder="Type SMS message..."
+                disabled
+            >
+
+            <button
+                id="sendButton"
+                onclick="sendSMS()"
+                disabled
+            >
+                SEND
+            </button>
+
+        </div>
+
+    </main>
+
+</div>
+
+
+<script>
+
+    // ============================================
+    // SUPABASE
+    // ============================================
+
+    const SUPABASE_URL =
+        "https://ljenkggaiiquttrmxilp.supabase.co";
+
+    const SUPABASE_KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqZW5rZ2dhaWlxdXR0cm14aWxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MzUzNTUsImV4cCI6MjEwNDUxMTM1NX0.YJtrQ5J8pNb-6at9xVUHfoF7dgGprCZ7F3R4Q49X1Ik";
+
+    const supabaseClient =
+        window.supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_KEY
+        );
+
+
+    let currentUser = null;
+    let currentConversation = null;
+
+
+    // ============================================
+    // START
+    // ============================================
+
+    async function startDashboard() {
+
+        const {
+            data: {
+                session
+            }
+        } = await supabaseClient.auth.getSession();
+
+        if (!session) {
+            window.location.href = "index.html";
+            return;
+        }
+
+        currentUser = session.user;
+
+        document.getElementById("userEmail").textContent =
+            currentUser.email;
+
+        await loadDevices();
+        await loadConversations();
+
+        subscribeRealtime();
+    }
+
+
+    // ============================================
+    // LOAD DEVICES
+    // ============================================
+
+    async function loadDevices() {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("sms_devices")
+            .select("*")
+            .order("created_at", {
+                ascending: true
+            });
+
+        if (error) {
+
+            console.error(error);
+
+            document.getElementById("deviceArea").innerHTML =
+                `<div class="no-device">
+                    Error loading device
+                </div>`;
+
+            return;
+        }
+
+        if (!data || data.length === 0) {
+
+            document.getElementById("deviceArea").innerHTML =
+                `<div class="no-device">
+                    No SMS device registered yet.
+                </div>`;
+
+            return;
+        }
+
+        let html = "";
+
+        data.forEach(device => {
+
+            html += `
+                <div class="device">
+
+                    <div class="device-name">
+                        📱 ${escapeHtml(device.name || "SMS Device")}
+                    </div>
+
+                    <div class="device-number">
+                        ${escapeHtml(device.phone_number || "No number")}
+                    </div>
+
+                    <div class="status ${
+                        device.is_online
+                            ? "online"
+                            : "offline"
+                    }">
+
+                        ● ${
+                            device.is_online
+                                ? "ONLINE"
+                                : "OFFLINE"
+                        }
+
+                    </div>
+
+                </div>
+            `;
+
+        });
+
+        document.getElementById("deviceArea").innerHTML = html;
+    }
+
+
+    // ============================================
+    // LOAD CONVERSATIONS
+    // ============================================
+
+    async function loadConversations() {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("sms_conversations")
+            .select("*")
+            .order("last_message_at", {
+                ascending: false
+            });
+
+        if (error) {
+
+            console.error(error);
+
+            document.getElementById("conversationList").innerHTML =
+                `<div class="no-device">
+                    Error loading conversations.
+                </div>`;
+
+            return;
+        }
+
+        if (!data || data.length === 0) {
+
+            document.getElementById("conversationList").innerHTML =
+                `<div class="no-device">
+                    No SMS conversations yet.
+                </div>`;
+
+            return;
+        }
+
+        let html = "";
+
+        data.forEach(conversation => {
+
+            html += `
+                <div
+                    class="conversation"
+                    onclick="openConversation('${conversation.id}')"
+                >
+
+                    <div class="conversation-number">
+                        ${escapeHtml(
+                            conversation.display_name ||
+                            conversation.phone_number
+                        )}
+                    </div>
+
+                    <div class="conversation-message">
+                        ${escapeHtml(
+                            conversation.last_message || ""
+                        )}
+                    </div>
+
+                </div>
+            `;
+
+        });
+
+        document.getElementById("conversationList").innerHTML = html;
+    }
+
+
+    // ============================================
+    // OPEN CONVERSATION
+    // ============================================
+
+    async function openConversation(conversationId) {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("sms_conversations")
+            .select("*")
+            .eq("id", conversationId)
+            .single();
+
+        if (error) {
+
+            console.error(error);
+            return;
+        }
+
+        currentConversation = data;
+
+        document.getElementById("chatTitle").textContent =
+            data.display_name ||
+            data.phone_number;
+
+        document.getElementById("messageInput").disabled = false;
+        document.getElementById("sendButton").disabled = false;
+
+        await loadMessages(conversationId);
+    }
+
+
+    // ============================================
+    // LOAD MESSAGES
+    // ============================================
+
+    async function loadMessages(conversationId) {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("sms_messages")
+            .select("*")
+            .eq("conversation_id", conversationId)
+            .order("sms_timestamp", {
+                ascending: true
+            });
+
+        if (error) {
+
+            console.error(error);
+            return;
+        }
+
+        const container =
+            document.getElementById("messages");
+
+        if (!data || data.length === 0) {
+
+            container.innerHTML =
+                `<div class="empty">
+                    No messages yet
+                </div>`;
+
+            return;
+        }
+
+        let html = "";
+
+        data.forEach(msg => {
+
+            const outgoing =
+                msg.direction === "outgoing";
+
+            const time =
+                msg.sms_timestamp
+                    ? new Date(
+                        msg.sms_timestamp
+                    ).toLocaleString()
+                    : "";
+
+            html += `
+                <div class="message-row ${
+                    outgoing ? "outgoing" : ""
+                }">
+
+                    <div class="bubble">
+
+                        ${escapeHtml(msg.message)}
+
+                        <div class="message-info">
+                            ${outgoing ? "You" : "Customer"}
+                            ·
+                            ${escapeHtml(time)}
+                            ·
+                            ${escapeHtml(msg.status || "")}
+                        </div>
+
+                    </div>
+
+                </div>
+            `;
+
+        });
+
+        container.innerHTML = html;
+
+        container.scrollTop =
+            container.scrollHeight;
+    }
+
+
+    // ============================================
+    // SEND SMS
+    // ============================================
+
+    async function sendSMS() {
+
+        if (!currentConversation) {
+            return;
+        }
+
+        const input =
+            document.getElementById("messageInput");
+
+        const text =
+            input.value.trim();
+
+        if (!text) {
+            return;
+        }
+
+        const button =
+            document.getElementById("sendButton");
+
+        button.disabled = true;
+        button.textContent = "SENDING...";
+
+        try {
+
+            /*
+             * NOTE:
+             * This inserts the outgoing SMS into the
+             * database and queues it for the Android
+             * SMS Bridge.
+             */
+
+            const {
+                data: message,
+                error: messageError
+            } = await supabaseClient
+                .from("sms_messages")
+                .insert({
+                    conversation_id:
+                        currentConversation.id,
+
+                    device_id:
+                        currentConversation.device_id,
+
+                    direction: "outgoing",
+
+                    sender_number:
+                        null,
+
+                    recipient_number:
+                        currentConversation.phone_number,
+
+                    message: text,
+
+                    status: "queued",
+
+                    sent_by:
+                        currentUser.id,
+
+                    sms_timestamp:
+                        new Date().toISOString()
+                })
+                .select()
+                .single();
+
+            if (messageError) {
+                throw messageError;
+            }
+
+
+            const {
+                error: outboxError
+            } = await supabaseClient
+                .from("sms_outbox")
+                .insert({
+
+                    message_id:
+                        message.id,
+
+                    device_id:
+                        currentConversation.device_id,
+
+                    status:
+                        "queued",
+
+                    attempts:
+                        0
+
+                });
+
+            if (outboxError) {
+                throw outboxError;
+            }
+
+
+            input.value = "";
+
+            await loadMessages(
+                currentConversation.id
+            );
+
+            await loadConversations();
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Failed to queue SMS:\n" +
+                error.message
+            );
+
+        } finally {
+
+            button.disabled = false;
+            button.textContent = "SEND";
+
+        }
+    }
+
+
+    // ============================================
+    // REALTIME
+    // ============================================
+
+    function subscribeRealtime() {
+
+        supabaseClient
+            .channel("sms-dashboard")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "sms_messages"
+                },
+                async payload => {
+
+                    await loadConversations();
+
+                    if (currentConversation) {
+
+                        await loadMessages(
+                            currentConversation.id
+                        );
+
+                    }
+
+                }
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "sms_conversations"
+                },
+                async payload => {
+
+                    await loadConversations();
+
+                }
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "sms_devices"
+                },
+                async payload => {
+
+                    await loadDevices();
+
+                }
+            )
+            .subscribe();
+    }
+
+
+    // ============================================
+    // LOGOUT
+    // ============================================
+
+    async function logout() {
+
+        await supabaseClient.auth.signOut();
+
+        window.location.href =
+            "index.html";
+    }
+
+
+    // ============================================
+    // ESCAPE HTML
+    // ============================================
+
+    function escapeHtml(value) {
+
+        if (value === null ||
+            value === undefined) {
+
+            return "";
+
+        }
+
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+
+    // ============================================
+    // ENTER KEY
+    // ============================================
+
+    document
+        .getElementById("messageInput")
+        .addEventListener(
+            "keydown",
+            function(event) {
+
+                if (event.key === "Enter") {
+
+                    event.preventDefault();
+
+                    sendSMS();
+
+                }
+
+            }
+        );
+
+
+    // ============================================
+    // RUN
+    // ============================================
+
+    startDashboard();
+
+</script>
+
+</body>
+</html>
